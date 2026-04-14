@@ -83,7 +83,12 @@ public class GeneticAlgorithm {
         child1.addAll(indv1.chromosome.subList(0, i));
         child1.addAll(indv2.chromosome.subList(i, indv2.chromosome.size()));
 
+        offspring.add(new Individual(child1));
+        offspring.add(new Individual(child2));
+
     }
+
+    
 
     void computeValidity(Individual individual_1) {
         List<Integer> chromosome = individual_1.chromosome;
