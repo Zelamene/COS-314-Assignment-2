@@ -12,14 +12,17 @@ import java.util.Map;
 
 public class GeneticAlgorithm {
 
-    Integer POPULATION_SIZE = 100;
-    Integer MAX_CAPACITY = -1;
-    Integer NUM_ITEMS = -1;
+    int POPULATION_SIZE = 100;
+    int MAX_CAPACITY = -1;
+    int NUM_ITEMS = -1;
+    int TOURNAMENT_SIZE = 3;
 
     String filename;
     static LinkedHashMap<Integer, Integer> weightValues = new LinkedHashMap<>();
     List<Item> items = new ArrayList<>();
     List<Individual> initPop = new ArrayList<>();
+
+    List<Individual> fitIndivuals = new ArrayList<>();
 
     GeneticAlgorithm(String filename) throws FileNotFoundException, IOException {
         this.filename = filename;
@@ -51,7 +54,7 @@ public class GeneticAlgorithm {
         }
     }
 
-    Integer randomizeBit() {
+    int randomizeBit() {
         return (int) (Math.random() * 2);
     }
 
@@ -113,7 +116,7 @@ public class GeneticAlgorithm {
 
             Integer secondValue = Integer.parseInt(line.substring(indx).trim());
             Integer firstValue = Integer.parseInt(line.substring(0, indx).trim());
-            
+
             if (index == 1) {
 
                 MAX_CAPACITY = secondValue;
@@ -131,4 +134,22 @@ public class GeneticAlgorithm {
 
     }
 
+    int randomIndex() {
+        return (int) Math.random() * (100);
+    }
+
+    Individual fitnessTournament() {
+        int[] players = { randomIndex(), randomIndex(), randomIndex() };
+        Individual indv = initPop.get(players[0]);
+        Individual fittest = indv;
+
+        for (int i = 1; i < 3; i++) {
+            Individual indv2 = initPop.get(players[i]);
+            if (indv2.fitnessScore > fittest.fitnessScore) {
+                fittest = indv2;
+            }
+        }
+
+        return fittest;
+    }
 }
