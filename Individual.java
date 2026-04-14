@@ -30,6 +30,7 @@ public class Individual {
         sb.append(isValid ? "\nvalid individual" : "\ninvalid individual");
         sb.append("\nFitness score: " + fitnessScore);
         sb.append("\ntotal weight: " + totalWeight + "\n");
+
         return sb.toString();
     }
 }

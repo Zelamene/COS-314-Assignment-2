@@ -3,12 +3,9 @@ import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedHashMap;
-import java.util.LinkedList;
 import java.util.List;
-import java.util.Map;
 
 public class GeneticAlgorithm {
 
@@ -16,24 +13,30 @@ public class GeneticAlgorithm {
     int MAX_CAPACITY = -1;
     int NUM_ITEMS = -1;
     int TOURNAMENT_SIZE = 3;
+    int FIT_PARENTS_SIZE = 40;
+
+    double MUTATION_RATE = 0.01;
+    double CROSSOVER_RATE = 0.6;
 
     String filename;
     static LinkedHashMap<Integer, Integer> weightValues = new LinkedHashMap<>();
     List<Item> items = new ArrayList<>();
     List<Individual> initPop = new ArrayList<>();
 
-    List<Individual> fitIndivuals = new ArrayList<>();
+    List<Individual> fitIndividuals = new ArrayList<>();
+    List<Individual> offspring = new ArrayList<>();
 
     GeneticAlgorithm(String filename) throws FileNotFoundException, IOException {
         this.filename = filename;
         loadFromFile();
         initialisePopulation();
+        hostTournament();
         printStuff();
     }
 
     void printStuff() {
 
-        for (Individual indv : initPop) {
+        for (Individual indv : fitIndividuals) {
             System.out.println(indv.toString());
         }
 
@@ -58,6 +61,30 @@ public class GeneticAlgorithm {
         return (int) (Math.random() * 2);
     }
 
+    void mutate(Individual indv) {
+        for (int i = 0; i < FIT_PARENTS_SIZE; i++) {
+            if (random() < MUTATION_RATE) {
+                indv.chromosome.set(i, (indv.chromosome.get(i) == 1) ? 0 : 1);
+            }
+        }
+    }
+
+    void crossover(Individual indv1, Individual indv2) {
+
+        if (random() > CROSSOVER_RATE)
+            return;
+
+        int i = (int) random() * indv1.chromosome.size();
+        List<Integer> child2 = new ArrayList<>();
+        child2.addAll(indv2.chromosome.subList(0, i));
+        child2.addAll(indv1.chromosome.subList(i, indv1.chromosome.size()));
+
+        List<Integer> child1 = new ArrayList<>();
+        child1.addAll(indv1.chromosome.subList(0, i));
+        child1.addAll(indv2.chromosome.subList(i, indv2.chromosome.size()));
+
+    }
+
     void computeValidity(Individual individual_1) {
         List<Integer> chromosome = individual_1.chromosome;
         int sumWeight = 0;
@@ -70,7 +97,6 @@ public class GeneticAlgorithm {
             }
         }
         individual_1.totalWeight = sumWeight;
-        System.out.println("\nsumWeight " + sumWeight);
 
     }
 
@@ -87,8 +113,6 @@ public class GeneticAlgorithm {
     }
 
     void computeFitnessScore(Individual individual_1) {
-        List<Integer> chromosome = individual_1.chromosome;
-        int sumValues = 0;
         if (individual_1.isValid) {
 
             individual_1.setFitnessScore(computeTotalValues(individual_1));
@@ -134,8 +158,12 @@ public class GeneticAlgorithm {
 
     }
 
+    double random() {
+        return Math.random();
+    }
+
     int randomIndex() {
-        return (int) Math.random() * (100);
+        return (int) (Math.random() * 100);
     }
 
     Individual fitnessTournament() {
@@ -145,11 +173,18 @@ public class GeneticAlgorithm {
 
         for (int i = 1; i < 3; i++) {
             Individual indv2 = initPop.get(players[i]);
-            if (indv2.fitnessScore > fittest.fitnessScore) {
+            if (indv2.fitnessScore > fittest.fitnessScore) {// ask if they should be allwed to be parents since they did
+                                                            // get demotedn by the penatly socre
                 fittest = indv2;
             }
         }
 
         return fittest;
+    }
+
+    void hostTournament() {
+        for (int i = 0; i < FIT_PARENTS_SIZE; i++) {
+            fitIndividuals.add(fitnessTournament());
+        }
     }
 }
