@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.concurrent.ThreadLocalRandom;
 
 public class GeneticAlgorithm {
 
@@ -27,15 +28,22 @@ public class GeneticAlgorithm {
     List<Individual> fitIndividuals = new ArrayList<>();
     List<Individual> offspring = new ArrayList<>();
 
+    int maxValue;
+    int minWeight;
+    final int penaltyCoefficient;
+
     GeneticAlgorithm(String filename) throws FileNotFoundException, IOException {
         this.filename = filename;
+        loadFromFile();
+        maxValue = items.stream().mapToInt(Item::getValue).max().getAsInt();
+        minWeight = items.stream().mapToInt(Item::getWeight).min().getAsInt();
+        penaltyCoefficient = Math.max(1, maxValue / Math.max(1, minWeight));
         runGA(100);
     }
 
     void runGA(int generations) {
         initialisePopulation();
         for (int i = 0; i < POPULATION_SIZE; i++) {
-            computeValidity(initPop.get(i));
             computeFitnessScore(initPop.get(i));
 
         }
@@ -55,7 +63,6 @@ public class GeneticAlgorithm {
 
             for (Individual child : offspring) {
                 mutate(child);
-                computeValidity(child);
                 computeFitnessScore(child);
 
             }
@@ -82,7 +89,6 @@ public class GeneticAlgorithm {
             }
             Individual indv = new Individual(list);
             initPop.add(indv);
-            computeValidity(indv);
             computeFitnessScore(indv);
 
         }
@@ -105,7 +111,7 @@ public class GeneticAlgorithm {
         if (random() > CROSSOVER_RATE)
             return;
 
-        int i = (int) (random() * indv1.chromosome.size());
+        int i = 1 + (int) (random() * (indv1.chromosome.size() - 1));
         List<Integer> child2 = new ArrayList<>();
         child2.addAll(indv2.chromosome.subList(0, i));
         child2.addAll(indv1.chromosome.subList(i, indv1.chromosome.size()));
@@ -120,6 +126,7 @@ public class GeneticAlgorithm {
     }
 
     void computeValidity(Individual individual_1) {
+        individual_1.setValidity(true);
         List<Integer> chromosome = individual_1.chromosome;
         int sumWeight = 0;
         for (int i = 0; i < chromosome.size(); i++) {
@@ -147,13 +154,13 @@ public class GeneticAlgorithm {
     }
 
     void computeFitnessScore(Individual individual_1) {
+        computeValidity(individual_1);
         if (individual_1.isValid) {
 
             individual_1.setFitnessScore(computeTotalValues(individual_1));
         } else {
             // ftnesscore = total value - (penaltycoeeficient * exceedvalue)
-            final int penaltyCoefficient = Collections.max(weightValues.values())
-                    / Collections.min(weightValues.keySet());
+
             Integer score = computeTotalValues(individual_1)
                     - (penaltyCoefficient * (individual_1.totalWeight - MAX_CAPACITY));
             individual_1.setFitnessScore(score);
@@ -197,23 +204,18 @@ public class GeneticAlgorithm {
     }
 
     int randomIndex() {
-        return (int) (Math.random() * initPop.size());
+        return ThreadLocalRandom.current().nextInt(initPop.size());
+
     }
 
     Individual fitnessTournament() {
-        int[] players = { randomIndex(), randomIndex(), randomIndex() };
-        Individual indv = initPop.get(players[0]);
-        Individual fittest = indv;
+        List<Individual> players = new ArrayList<>();
 
-        for (int i = 1; i < 3; i++) {
-            Individual indv2 = initPop.get(players[i]);
-            if (indv2.fitnessScore > fittest.fitnessScore) {// ask if they should be allwed to be parents since they did
-                                                            // get demotedn by the penatly socre
-                fittest = indv2;
-            }
+        for (int i = 0; i < TOURNAMENT_SIZE; i++) {
+            players.add(initPop.get(randomIndex()));
         }
 
-        return fittest;
+        return Collections.max(players, (a, b) -> a.fitnessScore - b.fitnessScore);
     }
 
     void hostTournament() {
@@ -223,17 +225,20 @@ public class GeneticAlgorithm {
     }
 
     void replace() {
-        // steady state
+        // steady state with eilism
         // replace unfit 40 inaavlid? or valid, or dont care??
 
-        //worst first
-        initPop.sort((a,b) ->  a.fitnessScore - b.fitnessScore);
-
+        // worst first
+        initPop.sort((a, b) -> a.fitnessScore - b.fitnessScore);
+        Individual best = Collections.max(initPop, (a, b) -> a.fitnessScore - b.fitnessScore);
         // sort offspring by best
         offspring.sort((a, b) -> b.fitnessScore - a.fitnessScore);
-
+        if (offspring.size() < RECPLACE_COUNT)
+            return;
         for (int i = 0; i < RECPLACE_COUNT; i++) {
             initPop.set(i, offspring.get(i));
+
         }
+        initPop.set(ThreadLocalRandom.current().nextInt(5), best);
     }
 }
