@@ -1,52 +1,58 @@
 import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.LinkedHashMap;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
 
 public class GeneticAlgorithm {
 
     int POPULATION_SIZE = 100;
-    int MAX_CAPACITY = -1;
-    int NUM_ITEMS = -1;
+    double MAX_CAPACITY = -1;
+    double NUM_ITEMS = -1;
     int TOURNAMENT_SIZE = 3;
     int FIT_PARENTS_SIZE = 40;
 
     double MUTATION_RATE = 0.01;
     double CROSSOVER_RATE = 0.6;
-    double RECPLACE_COUNT = 40;
+    int RECPLACE_COUNT = 40;
 
     String filename;
-    static LinkedHashMap<Integer, Integer> weightValues = new LinkedHashMap<>();
     List<Item> items = new ArrayList<>();
     List<Individual> initPop = new ArrayList<>();
 
-    List<Individual> fitIndividuals = new ArrayList<>();
     List<Individual> offspring = new ArrayList<>();
 
-    int maxValue;
-    int minWeight;
-    final int penaltyCoefficient;
+    double maxValue;
+    double minWeight;
+    final double penaltyCoefficient;
 
-    GeneticAlgorithm(String filename) throws FileNotFoundException, IOException {
+    Random rValue;
+    long seed;
+
+    GeneticAlgorithm(String filename, long seed) throws FileNotFoundException, IOException {
         this.filename = filename;
+        this.seed = seed;
+        this.rValue = new java.util.Random(seed);
         loadFromFile();
-        maxValue = items.stream().mapToInt(Item::getValue).max().getAsInt();
-        minWeight = items.stream().mapToInt(Item::getWeight).min().getAsInt();
+        maxValue = items.stream().mapToDouble(Item::getValue).max().getAsDouble();
+        minWeight = items.stream().mapToDouble(Item::getWeight).min().getAsDouble();
         penaltyCoefficient = Math.max(1, maxValue / Math.max(1, minWeight));
         runGA(100);
     }
 
     void runGA(int generations) {
+        long startTime = System.currentTimeMillis();
         initialisePopulation();
-        for (int i = 0; i < POPULATION_SIZE; i++) {
-            computeFitnessScore(initPop.get(i));
 
-        }
+        Individual bestOne = null;
 
         for (int gen = 0; gen < generations; gen++) {
             offspring.clear();
@@ -67,17 +73,33 @@ public class GeneticAlgorithm {
 
             }
             replace();
+            Individual genBest = initPop.stream()
+                    .filter(ind -> ind.isValid)
+                    .max((a, b) -> a.fitnessScore - b.fitnessScore)
+                    .orElse(null);
 
-            System.out.println("Generation " + gen + " complete");
+            if (genBest != null && (bestOne == null || genBest.fitnessScore > bestOne.fitnessScore)) {
+                bestOne = genBest;
+            }
         }
+        long runtime = (System.currentTimeMillis() - startTime);
+        writeResults(bestOne, runtime);
     }
 
-    void printStuff() {
+    void writeResults(Individual best, long runtimeSeconds) {
+        String outputPath = "results.txt";
+        int bestScore = best != null ? best.fitnessScore : 0;
+        Double optimum = KNOWN_OPTIMUMS.getOrDefault(filename, -1.0);
 
-        for (Individual indv : fitIndividuals) {
-            System.out.println(indv.toString());
+        try (FileWriter fw = new FileWriter(outputPath, true);
+                BufferedWriter bw = new BufferedWriter(fw)) {
+
+            bw.write(String.format("%-35s %-15s %-12s %-15s %-15s %s%n",
+                    filename, "GA", seed, bestScore, optimum, runtimeSeconds));
+
+        } catch (IOException e) {
+            System.err.println("Failed to write results: " + e.getMessage());
         }
-
     }
 
     void initialisePopulation() {
@@ -95,7 +117,7 @@ public class GeneticAlgorithm {
     }
 
     int randomizeBit() {
-        return (int) (Math.random() * 2);
+        return rValue.nextInt(2);
     }
 
     void mutate(Individual indv) {
@@ -128,7 +150,7 @@ public class GeneticAlgorithm {
     void computeValidity(Individual individual_1) {
         individual_1.setValidity(true);
         List<Integer> chromosome = individual_1.chromosome;
-        int sumWeight = 0;
+        double sumWeight = 0;
         for (int i = 0; i < chromosome.size(); i++) {
             if (chromosome.get(i).equals(1)) {
                 sumWeight += items.get(i).getWeight();
@@ -143,14 +165,14 @@ public class GeneticAlgorithm {
 
     int computeTotalValues(Individual individual_1) {
         List<Integer> chromosome = individual_1.chromosome;
-        int sumValues = 0;
+        double sumValues = 0;
         for (int i = 0; i < chromosome.size(); i++) {
             if (chromosome.get(i).equals(1)) {
                 sumValues += items.get(i).getValue();
             }
         }
 
-        return sumValues;
+        return (int) Math.round(sumValues);
     }
 
     void computeFitnessScore(Individual individual_1) {
@@ -161,8 +183,8 @@ public class GeneticAlgorithm {
         } else {
             // ftnesscore = total value - (penaltycoeeficient * exceedvalue)
 
-            Integer score = computeTotalValues(individual_1)
-                    - (penaltyCoefficient * (individual_1.totalWeight - MAX_CAPACITY));
+            int score = (int) (computeTotalValues(individual_1)
+                    - (penaltyCoefficient * (individual_1.totalWeight - MAX_CAPACITY)));
             individual_1.setFitnessScore(score);
         }
     }
@@ -179,8 +201,8 @@ public class GeneticAlgorithm {
 
             int indx = line.indexOf(" ") + 1;
 
-            Integer secondValue = Integer.parseInt(line.substring(indx).trim());
-            Integer firstValue = Integer.parseInt(line.substring(0, indx).trim());
+            double secondValue = parseValue(line.substring(indx).trim());
+            double firstValue = parseValue(line.substring(0, indx).trim());
 
             if (index == 1) {
 
@@ -188,8 +210,6 @@ public class GeneticAlgorithm {
                 NUM_ITEMS = firstValue;
 
             } else {
-                weightValues.put(secondValue,
-                        firstValue);
 
                 items.add(new Item(secondValue, firstValue));
             }
@@ -200,11 +220,11 @@ public class GeneticAlgorithm {
     }
 
     double random() {
-        return Math.random();
+        return rValue.nextDouble();
     }
 
     int randomIndex() {
-        return ThreadLocalRandom.current().nextInt(initPop.size());
+        return rValue.nextInt(initPop.size());
 
     }
 
@@ -218,27 +238,44 @@ public class GeneticAlgorithm {
         return Collections.max(players, (a, b) -> a.fitnessScore - b.fitnessScore);
     }
 
-    void hostTournament() {
-        for (int i = 0; i < FIT_PARENTS_SIZE; i++) {
-            fitIndividuals.add(fitnessTournament());
-        }
+    double parseValue(String s) {
+        return Double.parseDouble(s);
     }
 
     void replace() {
         // steady state with eilism
         // replace unfit 40 inaavlid? or valid, or dont care??
+        if (offspring.isEmpty())
+            return;
 
         // worst first
         initPop.sort((a, b) -> a.fitnessScore - b.fitnessScore);
-        Individual best = Collections.max(initPop, (a, b) -> a.fitnessScore - b.fitnessScore);
-        // sort offspring by best
-        offspring.sort((a, b) -> b.fitnessScore - a.fitnessScore);
-        if (offspring.size() < RECPLACE_COUNT)
-            return;
-        for (int i = 0; i < RECPLACE_COUNT; i++) {
-            initPop.set(i, offspring.get(i));
 
+        // sort offsring
+        offspring.sort((a, b) -> b.fitnessScore - a.fitnessScore);
+
+        Individual best = initPop.get(POPULATION_SIZE - 1); // sort offspring by best
+        int replaceCount = Math.min(offspring.size(), RECPLACE_COUNT);
+        for (int i = 0; i < replaceCount; i++) {
+            if (offspring.get(i).fitnessScore > initPop.get(i).fitnessScore) {
+                initPop.set(i, offspring.get(i));
+            }
         }
-        initPop.set(ThreadLocalRandom.current().nextInt(5), best);
+        initPop.set(POPULATION_SIZE - 1, best);
+    }
+
+    private static final Map<String, Double> KNOWN_OPTIMUMS = new HashMap<>();
+    static {
+        KNOWN_OPTIMUMS.put("f1_l-d_kp_10_269", 295.0);
+        KNOWN_OPTIMUMS.put("f2_l-d_kp_20_878", 1024.0);
+        KNOWN_OPTIMUMS.put("f3_l-d_kp_4_20", 35.0);
+        KNOWN_OPTIMUMS.put("f4_l-d_kp_4_11", 23.0);
+        KNOWN_OPTIMUMS.put("f5_l-d_kp_15_375", 481.0694);
+        KNOWN_OPTIMUMS.put("f6_l-d_kp_10_60", 52.0);
+        KNOWN_OPTIMUMS.put("f7_l-d_kp_7_50", 107.0);
+        KNOWN_OPTIMUMS.put("knapPI_1_100_1000_1", 9147.0);
+        KNOWN_OPTIMUMS.put("f8_l-d_kp_23_10000", 9767.0);
+        KNOWN_OPTIMUMS.put("f9_l-d_kp_5_80", 130.0);
+        KNOWN_OPTIMUMS.put("f10_l-d_kp_20_879", 1025.0);
     }
 }

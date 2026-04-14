@@ -4,9 +4,9 @@ public class Individual {
 
     List<Integer> chromosome;
     Boolean isValid = true;
-    Integer fitnessScore = 0;
-    Integer totalWeight = 0;
-    Integer totalValues=0;
+    int fitnessScore = 0;
+    double totalWeight = 0;
+    double totalValues=0;
 
     Individual(List<Integer> chromosome) {
         this.chromosome = chromosome;

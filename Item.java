@@ -1,17 +1,17 @@
 public class Item {
-    private int weight;
-    private int value;
+    private double weight;
+    private double value;
 
-    public Item(int weight, int value) {
+    public Item(double weight, double value) {
         this.value = value;
         this.weight = weight;
     }
 
-    public int getWeight() {
+    public double getWeight() {
         return weight;
     }
 
-    public int getValue() {
+    public double getValue() {
         return value;
     }
 
