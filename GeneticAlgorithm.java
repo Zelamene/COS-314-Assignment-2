@@ -17,6 +17,7 @@ public class GeneticAlgorithm {
 
     double MUTATION_RATE = 0.01;
     double CROSSOVER_RATE = 0.6;
+    double RECPLACE_COUNT = 40;
 
     String filename;
     static LinkedHashMap<Integer, Integer> weightValues = new LinkedHashMap<>();
@@ -34,6 +35,10 @@ public class GeneticAlgorithm {
         printStuff();
     }
 
+    void runGA(int generations){
+        initialisePopulation();
+    }
+
     void printStuff() {
 
         for (Individual indv : fitIndividuals) {
@@ -44,7 +49,7 @@ public class GeneticAlgorithm {
 
     void initialisePopulation() {
 
-        for (int i = 0; i < MAX_CAPACITY; i++) {
+        for (int i = 0; i < POPULATION_SIZE; i++) {
             List<Integer> list = new ArrayList<>();
             for (int j = 0; j < NUM_ITEMS; j++) {
                 list.add(randomizeBit());
@@ -62,7 +67,7 @@ public class GeneticAlgorithm {
     }
 
     void mutate(Individual indv) {
-        for (int i = 0; i < FIT_PARENTS_SIZE; i++) {
+        for (int i = 0; i < indv.chromosome.size(); i++) {
             if (random() < MUTATION_RATE) {
                 indv.chromosome.set(i, (indv.chromosome.get(i) == 1) ? 0 : 1);
             }
@@ -74,7 +79,7 @@ public class GeneticAlgorithm {
         if (random() > CROSSOVER_RATE)
             return;
 
-        int i = (int) random() * indv1.chromosome.size();
+        int i = (int) (random() * indv1.chromosome.size());
         List<Integer> child2 = new ArrayList<>();
         child2.addAll(indv2.chromosome.subList(0, i));
         child2.addAll(indv1.chromosome.subList(i, indv1.chromosome.size()));
@@ -87,8 +92,6 @@ public class GeneticAlgorithm {
         offspring.add(new Individual(child2));
 
     }
-
-    
 
     void computeValidity(Individual individual_1) {
         List<Integer> chromosome = individual_1.chromosome;
@@ -168,7 +171,7 @@ public class GeneticAlgorithm {
     }
 
     int randomIndex() {
-        return (int) (Math.random() * 100);
+        return (int) (Math.random() * initPop.size());
     }
 
     Individual fitnessTournament() {
@@ -190,6 +193,23 @@ public class GeneticAlgorithm {
     void hostTournament() {
         for (int i = 0; i < FIT_PARENTS_SIZE; i++) {
             fitIndividuals.add(fitnessTournament());
+        }
+    }
+
+    void replace() {
+        // steady state
+        // replace unfit 40 inaavlid? or valid, or dont care??
+
+        //worst first
+        initPop.sort((a,b) ->  a.fitnessScore - b.fitnessScore);
+
+        // sort offspring by best
+        offspring.sort((a, b) -> b.fitnessScore - a.fitnessScore);\
+
+
+        int count = 0;
+        for (int i = 0; i < RECPLACE_COUNT; i++) {
+            initPop.set(i, offspring.get(i));
         }
     }
 }
