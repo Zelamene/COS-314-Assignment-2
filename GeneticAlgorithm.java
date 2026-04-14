@@ -29,14 +29,40 @@ public class GeneticAlgorithm {
 
     GeneticAlgorithm(String filename) throws FileNotFoundException, IOException {
         this.filename = filename;
-        loadFromFile();
-        initialisePopulation();
-        hostTournament();
-        printStuff();
+        runGA(100);
     }
 
-    void runGA(int generations){
+    void runGA(int generations) {
         initialisePopulation();
+        for (int i = 0; i < POPULATION_SIZE; i++) {
+            computeValidity(initPop.get(i));
+            computeFitnessScore(initPop.get(i));
+
+        }
+
+        for (int gen = 0; gen < generations; gen++) {
+            offspring.clear();
+            // produce new childern
+
+            for (int i = 0; i < FIT_PARENTS_SIZE; i++) {
+                Individual parent1 = fitnessTournament();
+                Individual parent2 = fitnessTournament();
+
+                crossover(parent1, parent2);
+            }
+
+            // mutate offspring
+
+            for (Individual child : offspring) {
+                mutate(child);
+                computeValidity(child);
+                computeFitnessScore(child);
+
+            }
+            replace();
+
+            System.out.println("Generation " + gen + " complete");
+        }
     }
 
     void printStuff() {
