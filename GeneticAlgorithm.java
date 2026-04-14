@@ -230,10 +230,8 @@ public class GeneticAlgorithm {
         initPop.sort((a,b) ->  a.fitnessScore - b.fitnessScore);
 
         // sort offspring by best
-        offspring.sort((a, b) -> b.fitnessScore - a.fitnessScore);\
+        offspring.sort((a, b) -> b.fitnessScore - a.fitnessScore);
 
-
-        int count = 0;
         for (int i = 0; i < RECPLACE_COUNT; i++) {
             initPop.set(i, offspring.get(i));
         }
