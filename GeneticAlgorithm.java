@@ -231,36 +231,37 @@ public class GeneticAlgorithm {
         return best;
     }
 
- void replace() {
-    if (offspring.isEmpty())
-        return;
+    void replace() {
+        if (offspring.isEmpty())
+            return;
 
-    // Sort population worst first
-    population.sort(Comparator.comparingDouble(a -> a.fitnessScore));
+        // Sort population worst first
+        population.sort(Comparator.comparingDouble(a -> a.fitnessScore));
 
-    // Sort offspring best first
-    offspring.sort((a, b) -> Double.compare(b.fitnessScore, a.fitnessScore));
+        // Sort offspring best first
+        offspring.sort((a, b) -> Double.compare(b.fitnessScore, a.fitnessScore));
 
-    List<Individual> newPop = new ArrayList<>();
+        List<Individual> newPop = new ArrayList<>();
 
-    // 1. Preserve elites
-    for (int i = POPULATION_SIZE - ELITE_COUNT; i < POPULATION_SIZE; i++) {
-        newPop.add(population.get(i));
+        // 1. Preserve elites
+        for (int i = POPULATION_SIZE - ELITE_COUNT; i < POPULATION_SIZE; i++) {
+            newPop.add(population.get(i));
+        }
+
+        // 2. Add the best REPLACE_COUNT offspring
+        for (int i = 0; i < REPLACE_COUNT; i++) {
+            newPop.add(offspring.get(i));
+        }
+
+        // 3. Add the remaining old individuals
+        for (int i = REPLACE_COUNT; i < POPULATION_SIZE - ELITE_COUNT; i++) {
+            newPop.add(population.get(i));
+        }
+
+        population = newPop;
     }
 
-    // 2. Add the best REPLACE_COUNT offspring
-    for (int i = 0; i < REPLACE_COUNT; i++) {
-        newPop.add(offspring.get(i));
-    }
-
-    // 3. Add the remaining old individuals
-    for (int i = REPLACE_COUNT; i < POPULATION_SIZE - ELITE_COUNT; i++) {
-        newPop.add(population.get(i));
-    }
-
-    population = newPop;
-}
-   private static final Map<String, Double> KNOWN_OPTIMUMS = new HashMap<>();
+    private static final Map<String, Double> KNOWN_OPTIMUMS = new HashMap<>();
     static {
         KNOWN_OPTIMUMS.put("f1_l-d_kp_10_269", 295.0);
         KNOWN_OPTIMUMS.put("f2_l-d_kp_20_878", 1024.0);
