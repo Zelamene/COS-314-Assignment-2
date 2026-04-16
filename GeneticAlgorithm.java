@@ -6,46 +6,45 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
-import java.util.concurrent.ThreadLocalRandom;
 
 public class GeneticAlgorithm {
 
     int POPULATION_SIZE = 100;
     double MAX_CAPACITY = -1;
-    double NUM_ITEMS = -1;
+    int NUM_ITEMS = -1;
+
     int TOURNAMENT_SIZE = 3;
-    int FIT_PARENTS_SIZE = 40;
+    int REPLACE_COUNT = 40;
+    int GENERATIONS = 100;
 
     double MUTATION_RATE = 0.01;
     double CROSSOVER_RATE = 0.6;
-    int RECPLACE_COUNT = 40;
+
+    final int ELITE_COUNT = 5;
 
     String filename;
     List<Item> items = new ArrayList<>();
-    List<Individual> initPop = new ArrayList<>();
-
+    List<Individual> population = new ArrayList<>();
     List<Individual> offspring = new ArrayList<>();
 
-    double maxValue;
-    double minWeight;
-    final double penaltyCoefficient;
-
-    Random rValue;
+    Random rand;
+    double penaltyCoefficient;
     long seed;
 
     GeneticAlgorithm(String filename, long seed) throws FileNotFoundException, IOException {
         this.filename = filename;
         this.seed = seed;
-        this.rValue = new java.util.Random(seed);
+        this.rand = new Random(seed);
         loadFromFile();
-        maxValue = items.stream().mapToDouble(Item::getValue).max().getAsDouble();
-        minWeight = items.stream().mapToDouble(Item::getWeight).min().getAsDouble();
+        double maxValue = items.stream().mapToDouble(Item::getValue).max().getAsDouble();
+        double minWeight = items.stream().mapToDouble(Item::getWeight).min().getAsDouble();
         penaltyCoefficient = Math.max(1, maxValue / Math.max(1, minWeight));
-        runGA(100);
+        runGA(GENERATIONS);
     }
 
     void runGA(int generations) {
@@ -56,13 +55,12 @@ public class GeneticAlgorithm {
 
         for (int gen = 0; gen < generations; gen++) {
             offspring.clear();
+
             // produce new childern
-
-            for (int i = 0; i < FIT_PARENTS_SIZE; i++) {
-                Individual parent1 = fitnessTournament();
-                Individual parent2 = fitnessTournament();
-
-                crossover(parent1, parent2);
+            while (offspring.size() < REPLACE_COUNT) {
+                Individual p1 = fitnessTournament();
+                Individual p2 = fitnessTournament();
+                crossover(p1, p2);
             }
 
             // mutate offspring
@@ -73,22 +71,23 @@ public class GeneticAlgorithm {
 
             }
             replace();
-            Individual genBest = initPop.stream()
+            // find best indivisual in current pouplaiton , only valid ones
+            Individual genBest = population.stream()
                     .filter(ind -> ind.isValid)
-                    .max((a, b) -> a.fitnessScore - b.fitnessScore)
+                    .max((a, b) -> Double.compare(a.fitnessScore, b.fitnessScore))
                     .orElse(null);
 
             if (genBest != null && (bestOne == null || genBest.fitnessScore > bestOne.fitnessScore)) {
                 bestOne = genBest;
             }
         }
-        long runtime = (System.currentTimeMillis() - startTime);
+        long runtime = (System.currentTimeMillis() - startTime) / 1000;
         writeResults(bestOne, runtime);
     }
 
     void writeResults(Individual best, long runtimeSeconds) {
         String outputPath = "results.txt";
-        int bestScore = best != null ? best.fitnessScore : 0;
+        double bestScore = best != null ? best.fitnessScore : 0;
         Double optimum = KNOWN_OPTIMUMS.getOrDefault(filename, -1.0);
 
         try (FileWriter fw = new FileWriter(outputPath, true);
@@ -103,44 +102,51 @@ public class GeneticAlgorithm {
     }
 
     void initialisePopulation() {
-
         for (int i = 0; i < POPULATION_SIZE; i++) {
-            List<Integer> list = new ArrayList<>();
-            for (int j = 0; j < NUM_ITEMS; j++) {
-                list.add(randomizeBit());
+            List<Boolean> chromosome = new ArrayList<>(Collections.nCopies(NUM_ITEMS, false));
+            List<Integer> indices = new ArrayList<>();
+            for (int j = 0; j < NUM_ITEMS; j++)
+                indices.add(j);
+            Collections.shuffle(indices, rand);
+
+            double currentWeight = 0;
+            for (int idx : indices) {
+                if (currentWeight + items.get(idx).getWeight() <= MAX_CAPACITY) {
+                    chromosome.set(idx, true);
+                    currentWeight += items.get(idx).getWeight();
+                }
             }
-            Individual indv = new Individual(list);
-            initPop.add(indv);
-            computeFitnessScore(indv);
-
+            Individual ind = new Individual(chromosome);
+            computeFitnessScore(ind);
+            population.add(ind);
         }
-    }
-
-    int randomizeBit() {
-        return rValue.nextInt(2);
     }
 
     void mutate(Individual indv) {
         for (int i = 0; i < indv.chromosome.size(); i++) {
-            if (random() < MUTATION_RATE) {
-                indv.chromosome.set(i, (indv.chromosome.get(i) == 1) ? 0 : 1);
+            if (rand.nextDouble() < MUTATION_RATE) {
+                indv.chromosome.set(i, (indv.chromosome.get(i)) ? false : true);
             }
         }
     }
 
     void crossover(Individual indv1, Individual indv2) {
 
-        if (random() > CROSSOVER_RATE)
+        if (rand.nextDouble() > CROSSOVER_RATE) {
+            offspring.add(new Individual(new ArrayList<>(indv1.chromosome)));
+            offspring.add(new Individual(new ArrayList<>(indv2.chromosome)));
             return;
 
-        int i = 1 + (int) (random() * (indv1.chromosome.size() - 1));
-        List<Integer> child2 = new ArrayList<>();
-        child2.addAll(indv2.chromosome.subList(0, i));
-        child2.addAll(indv1.chromosome.subList(i, indv1.chromosome.size()));
+        }
 
-        List<Integer> child1 = new ArrayList<>();
-        child1.addAll(indv1.chromosome.subList(0, i));
-        child1.addAll(indv2.chromosome.subList(i, indv2.chromosome.size()));
+        int point = rand.nextInt(indv1.chromosome.size() + 1);
+        List<Boolean> child2 = new ArrayList<>();
+        child2.addAll(indv2.chromosome.subList(0, point));
+        child2.addAll(indv1.chromosome.subList(point, indv1.chromosome.size()));
+
+        List<Boolean> child1 = new ArrayList<>();
+        child1.addAll(indv1.chromosome.subList(0, point));
+        child1.addAll(indv2.chromosome.subList(point, indv2.chromosome.size()));
 
         offspring.add(new Individual(child1));
         offspring.add(new Individual(child2));
@@ -148,31 +154,29 @@ public class GeneticAlgorithm {
     }
 
     void computeValidity(Individual individual_1) {
-        individual_1.setValidity(true);
-        List<Integer> chromosome = individual_1.chromosome;
+        List<Boolean> chromosome = individual_1.chromosome;
         double sumWeight = 0;
         for (int i = 0; i < chromosome.size(); i++) {
-            if (chromosome.get(i).equals(1)) {
+            if (chromosome.get(i)) {
                 sumWeight += items.get(i).getWeight();
-                if (sumWeight > MAX_CAPACITY) {
-                    individual_1.setValidity(false);
-                }
             }
         }
         individual_1.totalWeight = sumWeight;
+        individual_1.setValidity(sumWeight <= MAX_CAPACITY);
 
     }
 
-    int computeTotalValues(Individual individual_1) {
-        List<Integer> chromosome = individual_1.chromosome;
+    double computeTotalValues(Individual individual_1) {
+        List<Boolean> chromosome = individual_1.chromosome;
         double sumValues = 0;
         for (int i = 0; i < chromosome.size(); i++) {
-            if (chromosome.get(i).equals(1)) {
+            if (chromosome.get(i)) {
                 sumValues += items.get(i).getValue();
             }
         }
 
-        return (int) Math.round(sumValues);
+        individual_1.totalValues = sumValues;
+        return sumValues;
     }
 
     void computeFitnessScore(Individual individual_1) {
@@ -183,7 +187,7 @@ public class GeneticAlgorithm {
         } else {
             // ftnesscore = total value - (penaltycoeeficient * exceedvalue)
 
-            int score = (int) (computeTotalValues(individual_1)
+            double score = (computeTotalValues(individual_1)
                     - (penaltyCoefficient * (individual_1.totalWeight - MAX_CAPACITY)));
             individual_1.setFitnessScore(score);
         }
@@ -191,80 +195,72 @@ public class GeneticAlgorithm {
 
     void loadFromFile() throws FileNotFoundException, IOException {
         String filePath = "Knapsack Instances/" + filename;
-        BufferedReader br = new BufferedReader(new FileReader(filePath));
+        try (BufferedReader br = new BufferedReader(new FileReader(filePath))) {
+            // First line: numItems capacity
+            String header = br.readLine();
+            if (header == null)
+                throw new IOException("Empty file");
+            String[] headerParts = header.trim().split("\\s+");
+            NUM_ITEMS = Integer.parseInt(headerParts[0]);
+            MAX_CAPACITY = Double.parseDouble(headerParts[1]);
 
-        String line = null;
-        int index = 0;
-
-        while ((line = br.readLine()) != null && line.length() != 0) {
-            index++;
-
-            int indx = line.indexOf(" ") + 1;
-
-            double secondValue = parseValue(line.substring(indx).trim());
-            double firstValue = parseValue(line.substring(0, indx).trim());
-
-            if (index == 1) {
-
-                MAX_CAPACITY = secondValue;
-                NUM_ITEMS = firstValue;
-
-            } else {
-
-                items.add(new Item(secondValue, firstValue));
+            // Subsequent lines: value weight
+            int idx = 0;
+            String line;
+            while ((line = br.readLine()) != null) {
+                line = line.trim();
+                if (line.isEmpty())
+                    continue;
+                String[] parts = line.split("\\s+");
+                double value = Double.parseDouble(parts[0]);
+                double weight = Double.parseDouble(parts[1]);
+                items.add(new Item(idx++, value, weight));
             }
-
         }
-        br.close();
-
-    }
-
-    double random() {
-        return rValue.nextDouble();
-    }
-
-    int randomIndex() {
-        return rValue.nextInt(initPop.size());
-
     }
 
     Individual fitnessTournament() {
-        List<Individual> players = new ArrayList<>();
+        Individual best = null;
 
         for (int i = 0; i < TOURNAMENT_SIZE; i++) {
-            players.add(initPop.get(randomIndex()));
+            Individual candidate = population.get(rand.nextInt(population.size()));
+            if (best == null || candidate.fitnessScore > best.fitnessScore)
+                best = candidate;
         }
 
-        return Collections.max(players, (a, b) -> a.fitnessScore - b.fitnessScore);
+        return best;
     }
 
-    double parseValue(String s) {
-        return Double.parseDouble(s);
+ void replace() {
+    if (offspring.isEmpty())
+        return;
+
+    // Sort population worst first
+    population.sort(Comparator.comparingDouble(a -> a.fitnessScore));
+
+    // Sort offspring best first
+    offspring.sort((a, b) -> Double.compare(b.fitnessScore, a.fitnessScore));
+
+    List<Individual> newPop = new ArrayList<>();
+
+    // 1. Preserve elites
+    for (int i = POPULATION_SIZE - ELITE_COUNT; i < POPULATION_SIZE; i++) {
+        newPop.add(population.get(i));
     }
 
-    void replace() {
-        // steady state with eilism
-        // replace unfit 40 inaavlid? or valid, or dont care??
-        if (offspring.isEmpty())
-            return;
-
-        // worst first
-        initPop.sort((a, b) -> a.fitnessScore - b.fitnessScore);
-
-        // sort offsring
-        offspring.sort((a, b) -> b.fitnessScore - a.fitnessScore);
-
-        Individual best = initPop.get(POPULATION_SIZE - 1); // sort offspring by best
-        int replaceCount = Math.min(offspring.size(), RECPLACE_COUNT);
-        for (int i = 0; i < replaceCount; i++) {
-            if (offspring.get(i).fitnessScore > initPop.get(i).fitnessScore) {
-                initPop.set(i, offspring.get(i));
-            }
-        }
-        initPop.set(POPULATION_SIZE - 1, best);
+    // 2. Add the best REPLACE_COUNT offspring
+    for (int i = 0; i < REPLACE_COUNT; i++) {
+        newPop.add(offspring.get(i));
     }
 
-    private static final Map<String, Double> KNOWN_OPTIMUMS = new HashMap<>();
+    // 3. Add the remaining old individuals
+    for (int i = REPLACE_COUNT; i < POPULATION_SIZE - ELITE_COUNT; i++) {
+        newPop.add(population.get(i));
+    }
+
+    population = newPop;
+}
+   private static final Map<String, Double> KNOWN_OPTIMUMS = new HashMap<>();
     static {
         KNOWN_OPTIMUMS.put("f1_l-d_kp_10_269", 295.0);
         KNOWN_OPTIMUMS.put("f2_l-d_kp_20_878", 1024.0);

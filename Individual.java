@@ -2,13 +2,13 @@ import java.util.List;
 
 public class Individual {
 
-    List<Integer> chromosome;
+    List<Boolean> chromosome;
     Boolean isValid = true;
-    int fitnessScore = 0;
+    double fitnessScore = 0;
     double totalWeight = 0;
-    double totalValues=0;
+    double totalValues = 0;
 
-    Individual(List<Integer> chromosome) {
+    Individual(List<Boolean> chromosome) {
         this.chromosome = chromosome;
     }
 
@@ -16,14 +16,14 @@ public class Individual {
         this.isValid = isValid;
     }
 
-    void setFitnessScore(Integer fitness) {
+    void setFitnessScore(double fitness) {
         this.fitnessScore = fitness;
     }
 
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder();
-        for (Integer gene : chromosome) {
+        for (Boolean gene : chromosome) {
             sb.append(gene + " ");
 
         }
