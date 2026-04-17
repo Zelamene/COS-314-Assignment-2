@@ -1,199 +1,141 @@
-import java.io.BufferedWriter;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.lang.reflect.Array;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Random;
-import java.util.Scanner;
+import java.io.*;
+import java.nio.file.*;
+import java.util.*;
 
 public class Main {
 
-    static long userSeed;
-    private static final Map<String, Double> KNOWN_OPTIMUMS = new LinkedHashMap<>();
-    static {
-        KNOWN_OPTIMUMS.put("f1_l-d_kp_10_269", 295.0);
-        KNOWN_OPTIMUMS.put("f2_l-d_kp_20_878", 1024.0);
-        KNOWN_OPTIMUMS.put("f3_l-d_kp_4_20", 35.0);
-        KNOWN_OPTIMUMS.put("f4_l-d_kp_4_11", 23.0);
-        KNOWN_OPTIMUMS.put("f5_l-d_kp_15_375", 481.0694);
-        KNOWN_OPTIMUMS.put("f6_l-d_kp_10_60", 52.0);
-        KNOWN_OPTIMUMS.put("f7_l-d_kp_7_50", 107.0);
-        KNOWN_OPTIMUMS.put("f8_l-d_kp_23_10000", 9767.0);
-        KNOWN_OPTIMUMS.put("f9_l-d_kp_5_80", 130.0);
-        KNOWN_OPTIMUMS.put("f10_l-d_kp_20_879", 1025.0);
-        KNOWN_OPTIMUMS.put("knapPI_1_100_1000_1", 9147.0);
-    }
-
-    private static final String DATA_DIR = "Knapsack Instances/";
-    private static final String[] FILES = {
-            "f1_l-d_kp_10_269",
-            "f2_l-d_kp_20_878",
-            "f3_l-d_kp_4_20",
-            "f4_l-d_kp_4_11",
-            "f5_l-d_kp_15_375",
-            "f6_l-d_kp_10_60",
-            "f7_l-d_kp_7_50",
-            "f8_l-d_kp_23_10000",
-            "f9_l-d_kp_5_80",
-            "f10_l-d_kp_20_879",
-            "knapPI_1_100_1000_1"
-    };
-
-    // ILS configuration
-    private static final int ILS_ITERATIONS = 100;
-    private static final Perturbation.Strategy PERTURBATION_STRATEGY = Perturbation.Strategy.RANDOM_FLIPS;
-    private static final int PERTURBATION_STRENGTH = 3;
-
-    // Class to store results for each instance
-    static class ILSResult {
-        String instance;
-        double bestValue;
-        double runtime;
-        long seedUsed;
-
-        ILSResult(String instance, double bestValue, double runtime, long seedUsed) {
-            this.instance = instance;
-            this.bestValue = bestValue;
-            this.runtime = runtime;
-            this.seedUsed = seedUsed;
-        }
-    }
-
-    static void writeHeader() throws IOException {
-        try (FileWriter fw = new FileWriter("results.txt", false);
-                BufferedWriter bw = new BufferedWriter(fw)) {
-            bw.write(String.format("%-35s %-15s %-12s %-15s %-15s %s%n",
-                    "Problem Instance", "Algorithm", "Seed Value",
-                    "Best Solution", "Known Optimum", "Runtime (seconds)"));
-        }
-    }
-
     public static void main(String[] args) {
-        try {
-            writeHeader();
-            String[] files = { "f1_l-d_kp_10_269", "f2_l-d_kp_20_878", "f3_l-d_kp_4_20", "f4_l-d_kp_4_11",
-                    "f5_l-d_kp_15_375", "f6_l-d_kp_10_60", "f7_l-d_kp_7_50", "f8_l-d_kp_23_10000", "f9_l-d_kp_5_80",
-                    "f10_l-d_kp_20_879", "knapPI_1_100_1000_1" };
-            System.out.print("Enter seed value for random number generator: ");
-            Scanner scanner = new Scanner(System.in);
-            
-            System.out.printf("\nUsing seed: %d%n", userSeed);
+        Scanner scanner = new Scanner(System.in);
 
-            userSeed = scanner.nextLong();
-            scanner.close();
-            for (String file : files) {
-                GeneticAlgorithm ga = new GeneticAlgorithm(file, userSeed);
+        System.out.print("Enter random seed: ");
+        long userSeed = scanner.nextLong();
+        scanner.nextLine();
 
-            }
-        } catch (Exception e) {
-            // TODO Auto-generated catch block
-            System.out.println(e.getMessage());
-            e.printStackTrace();
+        System.out.print("Enter directory path that contains instances: ");
+        String dirPath = scanner.nextLine();
 
+        scanner.close();
+
+        Map<String, Double> knownOptima = new HashMap<>();
+        knownOptima.put("f1_l-d_kp_10_269", 295.0);
+        knownOptima.put("f2_l-d_kp_20_878", 1024.0);
+        knownOptima.put("f3_l-d_kp_4_20", 35.0);
+        knownOptima.put("f4_l-d_kp_4_11", 23.0);
+        knownOptima.put("f5_l-d_kp_15_375", 481.0694);
+        knownOptima.put("f6_l-d_kp_10_60", 52.0);
+        knownOptima.put("f7_l-d_kp_7_50", 107.0);
+        knownOptima.put("f8_l-d_kp_23_10000", 9767.0);
+        knownOptima.put("f9_l-d_kp_5_80", 130.0);
+        knownOptima.put("f10_l-d_kp_20_879", 1025.0);
+        knownOptima.put("knapPI_1_100_1000_1", 9147.0);
+        ;
+
+        List<File> instanceFiles = getInstanceFiles(dirPath);
+        if (instanceFiles.isEmpty()) {
+            System.err.println("No instance files found in " + dirPath);
+            return;
         }
-        System.out.println("========================================================");
-        System.out.println("     ITERATED LOCAL SEARCH FOR 0/1 KNAPSACK            ");
-        System.out.println("========================================================");
 
-        System.out.printf("ILS Config: %d iterations, %s perturbation, strength %d%n%n",
-                ILS_ITERATIONS, PERTURBATION_STRATEGY, PERTURBATION_STRENGTH);
+        Map<String, Map<String, Result>> allResults = new LinkedHashMap<>();
 
-        List<ILSResult> results = new ArrayList<>();
+        for (File instanceFile : instanceFiles) {
+            String instanceName = instanceFile.getName();
+            double knownOpt = knownOptima.getOrDefault(instanceName, -1.0);
 
-        for (String filename : FILES) {
             try {
-                // Parse dataset once
-                KnapsackInstance instance = KnapsackParser.parse(DATA_DIR + filename);
+                KnapsackInstance instance = KnapsackParser.parse(instanceFile.getAbsolutePath());
 
-                // Set random seed for reproducibility
-                Random random = new Random(userSeed);
-
-                // Generate initial solution (greedy - deterministic)
-                Solution initial = InitialSolutionGenerator.generate(instance);
-
-                // Run ILS with user seed
+                // ILS
                 IteratedLocalSearch ils = new IteratedLocalSearch(instance);
-                ils.setMaxIterations(ILS_ITERATIONS);
-                ils.setPerturbationStrategy(PERTURBATION_STRATEGY);
-                ils.setPerturbationStrength(PERTURBATION_STRENGTH);
+                ils.setMaxIterations(100);
+                ils.setPerturbationStrength(3);
                 ils.setUseAdaptiveStrength(true);
                 ils.setRandomSeed(userSeed);
 
-                long startTime = System.nanoTime();
-                Solution best = ils.run(initial);
-                long endTime = System.nanoTime();
+                Solution initial = InitialSolutionGenerator.generate(instance);
+                long ilsStart = System.nanoTime();
+                Solution bestILS = ils.run(initial);
+                long ilsEnd = System.nanoTime();
+                double ilsRuntime = (ilsEnd - ilsStart) / 1e9;
 
-                double runtime = (endTime - startTime) / 1e9;
+                // GA
+                GeneticAlgorithm ga = new GeneticAlgorithm(instance, userSeed);
+                long gaStartTime = System.nanoTime();
+                double bestGAValue = ga.run();
+                long gaEndTime = System.nanoTime();
+                double gaRuntime = (gaEndTime - gaStartTime) / 1e9;
 
-                results.add(new ILSResult(filename, best.totalValue, runtime, userSeed));
+                // Store
+                Map<String, Result> algoResults = new HashMap<>();
+                algoResults.put("ILS", new Result(bestILS.totalValue, ilsRuntime));
+                algoResults.put("GA", new Result(bestGAValue, gaRuntime));
+                allResults.put(instanceName, algoResults);
 
             } catch (Exception e) {
-                System.out.println("\n[ERROR] " + filename + ": " + e.getMessage());
-                e.printStackTrace();
+                System.err.println("Error processing " + instanceName + ": " + e.getMessage());
             }
         }
 
-        // Print the formatted table
-        printTable(results);
-
+        printFinalTable(allResults, knownOptima, userSeed);
     }
 
-    private static void printTable(List<ILSResult> results) {
+    private static List<File> getInstanceFiles(String dirPath) {
+        List<File> files = new ArrayList<>();
+        try (DirectoryStream<Path> stream = Files.newDirectoryStream(Paths.get(dirPath))) {
+            for (Path entry : stream) {
+                if (!entry.toString().toLowerCase().endsWith(".xlsx")) {
+                    File f = entry.toFile();
+                    files.add(f);
+                }
+
+            }
+        } catch (IOException e) {
+            System.err.println("Error reading directory: " + e.getMessage());
+        }
+        files.sort(Comparator.comparing(File::getName));
+        return files;
+    }
+
+    private static void printFinalTable(Map<String, Map<String, Result>> allResults,
+            Map<String, Double> knownOptima,
+            long seed) {
         System.out.println("\n");
-        System.out.println("Table 1: Comparison of GA and Iterated Local Search on 10 knapsack problem instances");
+        System.out.println("Table: Comparison of GA and Iterated Local Search");
         System.out.println(
                 "=========================================================================================================");
-        System.out.printf("%-30s | %-10s | %-12s | %-12s | %-12s | %-10s%n",
+        System.out.printf("%-35s | %-10s | %-12s | %-15s | %-15s | %-10s%n",
                 "Problem Instance", "Algorithm", "Seed Value", "Best Solution", "Known Optimum", "Runtime (s)");
-        System.out.println(
-                "---------------------------------------------------------------------------------------------------------");
+        System.out.println("");
 
-        for (ILSResult result : results) {
-            String instanceName = formatInstanceName(result.instance);
-            double knownOpt = KNOWN_OPTIMUMS.getOrDefault(result.instance, -1.0);
-            String optString = knownOpt > 0 ? String.format("%.4f", knownOpt) : "N/A";
+        for (Map.Entry<String, Map<String, Result>> entry : allResults.entrySet()) {
+            String instanceName = entry.getKey();
+            Map<String, Result> algoRes = entry.getValue();
+            double knownOpt = knownOptima.getOrDefault(instanceName, -1.0);
+            String optStr = knownOpt >= 0 ? String.format("%.4f", knownOpt) : "N/A";
 
-            System.out.printf("%-30s | %-10s | %-12d | %-12.4f | %-12s | %-10.3f%n",
-                    instanceName,
-                    "ILS",
-                    result.seedUsed,
-                    result.bestValue,
-                    optString,
-                    result.runtime);
+            // ILS row
+            Result ilsRes = algoRes.get("ILS");
+            System.out.printf("%-35s | %-10s | %-12d | %-15.4f | %-15s | %-10.3f%n",
+                    instanceName, "ILS", seed, ilsRes.bestValue, optStr, ilsRes.runtime);
+
+            // GA row
+            Result gaRes = algoRes.get("GA");
+            System.out.printf("%-35s | %-10s | %-12d | %-15.4f | %-15s | %-10.3f%n",
+                    instanceName, "GA", seed, gaRes.bestValue, optStr, gaRes.runtime);
+
+            System.out.println("");
         }
-
         System.out.println(
                 "=========================================================================================================");
-
-        // Print gap analysis
-        System.out.println("\n");
-        System.out.println("Table 2: Gap to Known Optimum");
-        System.out.println("================================================");
-        System.out.printf("%-30s | %-12s | %-12s%n",
-                "Problem Instance", "Best Value", "Gap to Opt (%)");
-        System.out.println("------------------------------------------------");
-
-        for (ILSResult result : results) {
-            String instanceName = formatInstanceName(result.instance);
-            double knownOpt = KNOWN_OPTIMUMS.getOrDefault(result.instance, -1.0);
-
-            if (knownOpt > 0) {
-                double gap = (knownOpt - result.bestValue) / knownOpt * 100;
-                System.out.printf("%-30s | %-12.4f | %-12.2f%%%n",
-                        instanceName, result.bestValue, gap);
-            } else {
-                System.out.printf("%-30s | %-12.4f | %-12s%n",
-                        instanceName, result.bestValue, "N/A");
-            }
-        }
-        System.out.println("================================================");
     }
 
-    private static String formatInstanceName(String filename) {
+    static class Result {
+        double bestValue;
+        double runtime;
 
-        return filename.replace("_", " ").replace("f", "f ");
+        Result(double bestValue, double runtime) {
+            this.bestValue = bestValue;
+            this.runtime = runtime;
+        }
     }
 }

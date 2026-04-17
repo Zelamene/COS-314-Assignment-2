@@ -2,7 +2,7 @@ import java.io.*;
 import java.util.*;
 
 //Represents a single object I might put in the knapsacj
- class Item {
+class Item {
     public final int index; // The item's ID number
     public final double value; // How much this item is worth
     public final double weight; // How heavy is the utem
@@ -13,10 +13,11 @@ import java.util.*;
         this.weight = weight;
     }
 
-    public double getValue(){
+    public double getValue() {
         return value;
     }
-    public double getWeight(){
+
+    public double getWeight() {
         return weight;
     }
 }
@@ -40,6 +41,7 @@ class KnapsackInstance {
         this.capacity = capacity;
         this.items = items;
     }
+
 }
 
 /*
@@ -136,7 +138,6 @@ class Solution {
         return count;
     }
 
-    // Create a new solution by flipping one item (add or remove)
     public Solution flip(int index, List<Item> items, double capacity) {
         boolean[] newSelected = selected.clone();
         double newValue = totalValue;
@@ -314,27 +315,13 @@ class LocalSearch {
  * to a different area of the search space.
  */
 class Perturbation {
-
     private final KnapsackInstance instance;
     private final Random random;
-
-    public enum Strategy {
-        RANDOM_FLIPS,
-        DOUBLE_FLIPS,
-        K_OPT,
-        MUTATION_RATE
-    }
-
-    private Strategy strategy = Strategy.RANDOM_FLIPS;
-    private int perturbationStrength = 3; // Number of changes
+    private int perturbationStrength = 3;
 
     public Perturbation(KnapsackInstance instance) {
         this.instance = instance;
         this.random = new Random();
-    }
-
-    public void setStrategy(Strategy strategy) {
-        this.strategy = strategy;
     }
 
     public void setStrength(int strength) {
@@ -342,170 +329,40 @@ class Perturbation {
     }
 
     public Solution perturb(Solution solution) {
-        switch (strategy) {
-            case RANDOM_FLIPS:
-                return randomFlips(solution);
-            case DOUBLE_FLIPS:
-                return doubleFlips(solution);
-            case K_OPT:
-                return kOpt(solution);
-            case MUTATION_RATE:
-                return mutationRate(solution);
-            default:
-                return randomFlips(solution);
-        }
+        return randomFlips(solution);
     }
 
     private Solution randomFlips(Solution solution) {
         Solution current = solution;
-
         for (int i = 0; i < perturbationStrength; i++) {
             int index = random.nextInt(instance.numItems);
             Solution neighbor = current.flip(index, instance.items, instance.capacity);
-
-            // Only accept if feasible
             if (neighbor.isFeasible(instance.capacity)) {
                 current = neighbor;
             } else {
-                // Try to repair by removing random items
                 current = repair(current);
             }
         }
-
-        return current;
-    }
-
-    private Solution doubleFlips(Solution solution) {
-        Solution current = solution;
-
-        for (int i = 0; i < perturbationStrength; i++) {
-
-            List<Integer> selectedIndices = new ArrayList<>();
-            for (int j = 0; j < instance.numItems; j++) {
-                if (current.selected[j])
-                    selectedIndices.add(j);
-            }
-
-            List<Integer> unselectedIndices = new ArrayList<>();
-            for (int j = 0; j < instance.numItems; j++) {
-                if (!current.selected[j])
-                    unselectedIndices.add(j);
-            }
-
-            if (!selectedIndices.isEmpty() && !unselectedIndices.isEmpty()) {
-                int removeIdx = selectedIndices.get(random.nextInt(selectedIndices.size()));
-                int addIdx = unselectedIndices.get(random.nextInt(unselectedIndices.size()));
-
-                Solution neighbor = current.swap(removeIdx, addIdx, instance.items, instance.capacity);
-                if (neighbor.isFeasible(instance.capacity)) {
-                    current = neighbor;
-                }
-            }
-        }
-
-        return current;
-    }
-
-    private Solution kOpt(Solution solution) {
-        Solution current = solution;
-
-        for (int k = 0; k < perturbationStrength; k++) {
-
-            int operation = random.nextInt(3);
-
-            switch (operation) {
-                case 0: // Single flip
-                    current = randomFlips(current);
-                    break;
-                case 1: // Double flip (swap)
-                    current = doubleFlips(current);
-                    break;
-                case 2: // Remove multiple, add multiple
-                    current = multiChange(current);
-                    break;
-            }
-        }
-
-        return current;
-    }
-
-    private Solution multiChange(Solution solution) {
-        Solution current = solution;
-
-        int toRemove = 1 + random.nextInt(perturbationStrength);
-        int toAdd = 1 + random.nextInt(perturbationStrength);
-
-        for (int i = 0; i < toRemove; i++) {
-            List<Integer> selected = new ArrayList<>();
-            for (int j = 0; j < instance.numItems; j++) {
-                if (current.selected[j])
-                    selected.add(j);
-            }
-            if (selected.isEmpty())
-                break;
-
-            int removeIdx = selected.get(random.nextInt(selected.size()));
-            current = current.flip(removeIdx, instance.items, instance.capacity);
-        }
-
-        for (int i = 0; i < toAdd; i++) {
-            List<Integer> unselected = new ArrayList<>();
-            for (int j = 0; j < instance.numItems; j++) {
-                if (!current.selected[j])
-                    unselected.add(j);
-            }
-            if (unselected.isEmpty())
-                break;
-
-            int addIdx = unselected.get(random.nextInt(unselected.size()));
-            Solution neighbor = current.flip(addIdx, instance.items, instance.capacity);
-            if (neighbor.isFeasible(instance.capacity)) {
-                current = neighbor;
-            }
-        }
-
-        return current;
-    }
-
-    private Solution mutationRate(Solution solution) {
-        double mutationProb = 0.1 * (perturbationStrength / 3.0); // Scale probability
-
-        Solution current = solution;
-
-        for (int i = 0; i < instance.numItems; i++) {
-            if (random.nextDouble() < mutationProb) {
-                Solution neighbor = current.flip(i, instance.items, instance.capacity);
-                if (neighbor.isFeasible(instance.capacity)) {
-                    current = neighbor;
-                }
-            }
-        }
-
         return current;
     }
 
     private Solution repair(Solution solution) {
         Solution current = solution;
-
         while (!current.isFeasible(instance.capacity)) {
-
             List<Integer> selected = new ArrayList<>();
             for (int i = 0; i < instance.numItems; i++) {
                 if (current.selected[i])
                     selected.add(i);
             }
-
             if (selected.isEmpty())
                 break;
-
             int toRemove = selected.get(random.nextInt(selected.size()));
             current = current.flip(toRemove, instance.items, instance.capacity);
         }
-
         return current;
     }
 
-    public void setRandomSeed(int seed) {
+    public void setRandomSeed(long seed) {
         random.setSeed(seed);
     }
 }
@@ -558,10 +415,6 @@ class IteratedLocalSearch {
         this.maxNoImprovement = maxNoImprovement;
     }
 
-    public void setPerturbationStrategy(Perturbation.Strategy strategy) {
-        perturbation.setStrategy(strategy);
-    }
-
     public void setPerturbationStrength(int strength) {
         perturbation.setStrength(strength);
     }
@@ -579,10 +432,6 @@ class IteratedLocalSearch {
         Solution bestSolution = initialSolution;
         Solution currentSolution = initialSolution;
         bestValue = currentSolution.totalValue;
-
-        System.out.println("\nStarting ILS...");
-        System.out.println("Initial solution value: " + bestValue);
-        System.out.println("----------------------------------------");
 
         int noImprovementCount = 0;
         int currentStrength = 3; // Initial perturbation strength
@@ -615,8 +464,7 @@ class IteratedLocalSearch {
                 bestValue = improvedSolution.totalValue;
                 noImprovementCount = 0;
 
-                System.out.printf("Iteration %3d: New best = %.4f (improvements: %d, strength: %d)%n",
-                        iterations, bestValue, localSearch.getImprovements(), currentStrength);
+    
             } else if (improvedSolution.totalValue > currentSolution.totalValue) {
                 currentSolution = improvedSolution;
                 noImprovementCount++;
@@ -650,9 +498,9 @@ class IteratedLocalSearch {
 
     public void setRandomSeed(long seed) {
         // Pass the seed to the perturbation classperturbation.setRandomSeed(seed);
+        perturbation.setRandomSeed(seed);
     }
 }
-
 
 /*
  * How everything works together
