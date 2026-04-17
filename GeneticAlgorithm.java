@@ -1,5 +1,6 @@
 import java.io.*;
 import java.util.*;
+import java.util.stream.Collectors;
 
 public class GeneticAlgorithm {
 
@@ -37,21 +38,29 @@ public class GeneticAlgorithm {
         Individual best = null;
 
         for (int gen = 0; gen < GENERATIONS; gen++) {
+            
+            for (Individual ind : population) {
+                computeFitness(ind, gen);
+            }
             offspring.clear();
 
             // Produce offspring
             while (offspring.size() < REPLACE_COUNT) {
                 Individual p1 = hostTournament();
-                Individual p2 = hostTournament();
+                Individual p2;
+                do {
+                    p2 = hostTournament();
+                } while (p2 == p1);
                 crossover(p1, p2);
             }
 
             // Mutate and evaluate fitness
             for (Individual child : offspring) {
                 mutate(child);
-                computeFitness(child);
+                computeFitness(child, gen);
             }
-            // replacemnt strategy
+
+            // replacement strategy
             replace();
 
             // Track best valid individual
@@ -68,7 +77,7 @@ public class GeneticAlgorithm {
         return best != null ? best.totalValues : 0.0;
     }
 
-    // Pupulation Initialisation
+    // population Initialisation
     private void initialisePopulation() {
         for (int i = 0; i < POPULATION_SIZE; i++) {
             List<Boolean> chromosome = new ArrayList<>(Collections.nCopies(numItems, false));
@@ -85,7 +94,7 @@ public class GeneticAlgorithm {
                 }
             }
             Individual ind = new Individual(chromosome);
-            computeFitness(ind);
+            computeFitness(ind, 0);
             population.add(ind);
         }
     }
@@ -130,7 +139,7 @@ public class GeneticAlgorithm {
     }
 
     // Fitness evaluation
-    private void computeFitness(Individual ind) {
+    private void computeFitness(Individual ind, int gen) {
         double totalWeight = 0, totalValue = 0;
 
         for (int i = 0; i < ind.chromosome.size(); i++) {
@@ -145,7 +154,8 @@ public class GeneticAlgorithm {
         if (ind.isValid) {
             ind.fitnessScore = totalValue;
         } else {
-            ind.fitnessScore = totalValue - penaltyCoefficient * (totalWeight - maxCapacity);
+            ind.fitnessScore = totalValue
+                    - (penaltyCoefficient * (1.0 + (double) gen / GENERATIONS)) * (totalWeight - maxCapacity);
         }
     }
 
@@ -154,23 +164,38 @@ public class GeneticAlgorithm {
         if (offspring.isEmpty())
             return;
 
+        // Sort population from worst to best
         population.sort(Comparator.comparingDouble(a -> a.fitnessScore));
+
+        // Sort offspring from best to worst
         offspring.sort((a, b) -> Double.compare(b.fitnessScore, a.fitnessScore));
+
+        List<Individual> eliteCandidates = population.stream()
+                .filter(ind -> ind.isValid)
+                .sorted(Comparator.comparingDouble((Individual ind) -> ind.fitnessScore).reversed())
+                .limit(ELITE_COUNT)
+                .collect(Collectors.toList());
+
+        int numberOfElites = eliteCandidates.size();
 
         List<Individual> newPop = new ArrayList<>();
 
-        // Elites
-        for (int i = POPULATION_SIZE - ELITE_COUNT; i < POPULATION_SIZE; i++) {
-            newPop.add(population.get(i));
-        }
-        // Best offspring
+        // Add elites
+        newPop.addAll(eliteCandidates);
+
+        // Add best offspring
         for (int i = 0; i < REPLACE_COUNT; i++) {
             newPop.add(offspring.get(i));
         }
-        // Remaining old individuals
-        for (int i = REPLACE_COUNT; i < POPULATION_SIZE - ELITE_COUNT; i++) {
-            newPop.add(population.get(i));
+
+        // surviving old population
+        List<Individual> pool = new ArrayList<>(population);
+        pool.removeAll(eliteCandidates);
+
+        for (int i = REPLACE_COUNT; i < POPULATION_SIZE - numberOfElites; i++) {
+            newPop.add(pool.get(i));
         }
+
         population = newPop;
     }
 
