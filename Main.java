@@ -115,12 +115,12 @@ public class Main {
 
             // ILS row
             Result ilsRes = algoRes.get("ILS");
-            System.out.printf("%-35s | %-10s | %-12d | %-15.4f | %-15s | %-10.3f%n",
+            System.out.printf("%-35s | %-10s | %-12d | %-15.4f | %-15s | %-15.6f%n",
                     instanceName, "ILS", seed, ilsRes.bestValue, optStr, ilsRes.runtime);
 
             // GA row
             Result gaRes = algoRes.get("GA");
-            System.out.printf("%-35s | %-10s | %-12d | %-15.4f | %-15s | %-10.3f%n",
+            System.out.printf("%-35s | %-10s | %-12d | %-15.4f | %-15s | %-15.6f%n",
                     instanceName, "GA", seed, gaRes.bestValue, optStr, gaRes.runtime);
 
             System.out.println("");
