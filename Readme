@@ -1,0 +1,7 @@
+1) Run the Jar with:
+java -jar Main.jar
+
+2) You are going to be prompted for a seed, to get the same results as in our table use 867.
+
+-For this next step make sure you have your knapsack instances in a folder that is in the same directory as the Main.jar.
+3) And then you will be prompted for the directory path, just type the name of the folder (where all the knapsack Instances are).
