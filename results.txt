@@ -1,0 +1,12 @@
+Problem Instance                    Algorithm       Seed Value   Best Solution   Known Optimum   Runtime (seconds)
+f1_l-d_kp_10_269                    GA              29           295             295.0           16
+f2_l-d_kp_20_878                    GA              29           1024            1024.0          21
+f3_l-d_kp_4_20                      GA              29           35              35.0            10
+f4_l-d_kp_4_11                      GA              29           23              23.0            6
+f5_l-d_kp_15_375                    GA              29           481             481.0694        7
+f6_l-d_kp_10_60                     GA              29           52              52.0            6
+f7_l-d_kp_7_50                      GA              29           105             107.0           6
+f8_l-d_kp_23_10000                  GA              29           9744            9767.0          7
+f9_l-d_kp_5_80                      GA              29           130             130.0           4
+f10_l-d_kp_20_879                   GA              29           1019            1025.0          5
+knapPI_1_100_1000_1                 GA              29           6789            9147.0          15
